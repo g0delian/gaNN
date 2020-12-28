@@ -6,6 +6,7 @@ from tensorflow.keras.constraints import min_max_norm
 from tensorflow.keras import initializers
 import random
 import bitstring
+import matplotlib.pyplot as plt
 
 x_min = -10
 x_max = 10
@@ -39,12 +40,15 @@ def fitness(solution, sol_idx):
     return solution_fitness
 
 def callback_generation(ga_instance):
+    global losses
     print("Generation = {generation}".format(
         generation=ga_instance.generations_completed))
     print("Fitness    = {fitness}".format(
         fitness=ga_instance.best_solution()[1]))
+    loss_value = 1.0 / ga_instance.best_solution()[1]
     print("Loss    = {loss}".format(
-        loss=1.0 / ga_instance.best_solution()[1]))
+        loss=1.0 / loss_value))
+    losses.append(loss_value)
     
 
 # Neural network has one hidden layer with six neurons.
@@ -89,14 +93,13 @@ ga_instance = pygad.GA(num_generations=num_generations,
                        random_mutation_max_val=2,
                        mutation_by_replacement=True,
                        gene_type=int,
-                       mutation_percent_genes=5,
-                       save_best_solutions=True
+                       mutation_percent_genes=5
                        )
 ga_instance.run()
 
 # After the generations complete, some plots are showed that summarize how the outputs/fitness values evolve over generations.
 ga_instance.plot_result(
-    title="PyGAD & Keras - Iteration vs. Fitness", linewidth=4)
+    title="Generation vs. Fitness", linewidth=4)
 
 # Returning the details of the best solution.
 solution, solution_fitness, solution_idx = ga_instance.best_solution()
@@ -106,8 +109,9 @@ print("Index of the best solution : {solution_idx}".format(
     solution_idx=solution_idx))
 
 # losses of best individuals in every generation
-losses = []
-for best in ga_instance.best_solutions:
-    loss_value = 1.0 / fitness(best, 0)
-    losses.append(loss_value)
-
+plt.figure()
+plt.plot(range(len(losses)), losses, linewidth=3)
+plt.title("Generation vs Loss") 
+plt.ylabel('Loss')
+plt.xlabel('Generation')
+plt.show()
