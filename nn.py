@@ -7,15 +7,22 @@ from tensorflow.keras import initializers
 import random
 import bitstring
 
+x_min = -10
+x_max = 10
+num_bytes = 15
+
 def fitness(solution, sol_idx):
     global data_inputs, data_outputs, keras_ga, model
     
+    # print("solution")
+    # print(solution)
+
     weight_list = []
     for i in range(0, len(solution), 15):
         binary_as_list = solution[i : i+15]
-        a = bitstring.BitArray(bin=("".join(str(i) for i in binary_as_list)))
-        list_to_decimal = a.int
-        weight_list.append(list_to_decimal)
+        d_value = int(''.join(map(str,binary_as_list)), 2)
+        x_actual = x_min + ((x_max - x_min) / (2**num_bytes - 1)) * d_value
+        weight_list.append(x_actual)
     # print(weight_list)
 
     model_weights_matrix = pygad.kerasga.model_weights_as_matrix(model=model,
@@ -30,17 +37,6 @@ def fitness(solution, sol_idx):
     solution_fitness = 1.0 / abs_error
 
     return solution_fitness
-
-def gen_initial_population():
-    population = []
-    for _ in range(100):
-        neural_ind = []
-        for _ in range(25):
-            weight = random.randint(-10,10)
-            to_bin = lambda x, count=8: "".join(map(lambda y:str((x>>y)&1), range(count-1, -1, -1)))
-            neural_ind.extend(to_bin(weight, 15))
-        population.append(neural_ind)
-    return population
 
 def callback_generation(ga_instance):
     print("Generation = {generation}".format(
@@ -77,18 +73,20 @@ for line in lines_t:
 num_generations = 100
 num_parents_mating = 2
 
-initial_pop = gen_initial_population()
 
 ga_instance = pygad.GA(num_generations=num_generations,
                        num_parents_mating=num_parents_mating,
                        fitness_func=fitness,
-                       initial_population=initial_pop,
+                       sol_per_pop=100,
+                       num_genes=375,
+                       init_range_low=0,
+                       init_range_high=2,
                        on_generation=callback_generation,
                        random_mutation_min_val=0,
                        random_mutation_max_val=2,
                        mutation_by_replacement=True,
                        gene_type=int,
-                       mutation_percent_genes=10
+                       mutation_percent_genes=5,
                        )
 ga_instance.run()
 
