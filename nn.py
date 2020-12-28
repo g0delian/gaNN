@@ -43,7 +43,9 @@ def callback_generation(ga_instance):
         generation=ga_instance.generations_completed))
     print("Fitness    = {fitness}".format(
         fitness=ga_instance.best_solution()[1]))
-
+    print("Loss    = {loss}".format(
+        loss=1.0 / ga_instance.best_solution()[1]))
+    
 
 # Neural network has one hidden layer with six neurons.
 input_layer = tensorflow.keras.layers.Input(2)
@@ -61,6 +63,7 @@ keras_ga = pygad.kerasga.KerasGA(model=model, num_solutions=10)
 
 data_inputs = []
 data_outputs = []
+losses = []
 
 # read training data from the file
 file_t = open("train.dat", "r")
@@ -70,7 +73,7 @@ for line in lines_t:
     data_inputs.append([float(x1), float(x2)])
     data_outputs.append([float(y)])
 
-num_generations = 100
+num_generations = 5
 num_parents_mating = 2
 
 
@@ -87,6 +90,7 @@ ga_instance = pygad.GA(num_generations=num_generations,
                        mutation_by_replacement=True,
                        gene_type=int,
                        mutation_percent_genes=5,
+                       save_best_solutions=True
                        )
 ga_instance.run()
 
@@ -101,13 +105,9 @@ print("Fitness value of the best solution = {solution_fitness}".format(
 print("Index of the best solution : {solution_idx}".format(
     solution_idx=solution_idx))
 
-# Fetch the parameters of the best solution.
-best_solution_weights = pygad.kerasga.model_weights_as_matrix(model=model,
-                                                              weights_vector=solution)
-model.set_weights(best_solution_weights)
-predictions = model.predict(data_inputs)
-print("Predictions : \n", predictions)
+# losses of best individuals in every generation
+losses = []
+for best in ga_instance.best_solutions:
+    loss_value = 1.0 / fitness(best, 0)
+    losses.append(loss_value)
 
-mae = tensorflow.keras.losses.MeanAbsoluteError()
-abs_error = mae(data_outputs, predictions).numpy()
-print("Absolute Error : ", abs_error)
