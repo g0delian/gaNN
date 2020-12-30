@@ -12,16 +12,17 @@ x_min = -10
 x_max = 10
 num_bytes = 15
 
+
 def fitness(solution, sol_idx):
     global data_inputs, data_outputs, keras_ga, model
-    
+
     # print("solution")
     # print(solution)
 
     weight_list = []
     for i in range(0, len(solution), 15):
-        binary_as_list = solution[i : i+15]
-        d_value = int(''.join(map(str,binary_as_list)), 2)
+        binary_as_list = solution[i: i+15]
+        d_value = int(''.join(map(str, binary_as_list)), 2)
         x_actual = x_min + ((x_max - x_min) / (2**num_bytes - 1)) * d_value
         weight_list.append(x_actual)
     # print(weight_list)
@@ -39,6 +40,7 @@ def fitness(solution, sol_idx):
 
     return solution_fitness
 
+
 def callback_generation(ga_instance):
     global losses
     print("Generation = {generation}".format(
@@ -49,7 +51,7 @@ def callback_generation(ga_instance):
     print("Loss    = {loss}".format(
         loss=1.0 / loss_value))
     losses.append(loss_value)
-    
+
 
 # Neural network has one hidden layer with six neurons.
 input_layer = tensorflow.keras.layers.Input(2)
@@ -59,8 +61,6 @@ output_layer = tensorflow.keras.layers.Dense(
     1, activation="linear")(dense_layer1)
 
 model = tensorflow.keras.Model(inputs=input_layer, outputs=output_layer)
-
-# print(model.get_weights())
 
 # use the model, set population size to 100
 keras_ga = pygad.kerasga.KerasGA(model=model, num_solutions=10)
@@ -79,7 +79,6 @@ for line in lines_t:
 
 num_generations = 5
 num_parents_mating = 2
-
 
 ga_instance = pygad.GA(num_generations=num_generations,
                        num_parents_mating=num_parents_mating,
@@ -101,17 +100,10 @@ ga_instance.run()
 ga_instance.plot_result(
     title="Generation vs. Fitness", linewidth=4)
 
-# Returning the details of the best solution.
-solution, solution_fitness, solution_idx = ga_instance.best_solution()
-print("Fitness value of the best solution = {solution_fitness}".format(
-    solution_fitness=solution_fitness))
-print("Index of the best solution : {solution_idx}".format(
-    solution_idx=solution_idx))
-
 # losses of best individuals in every generation
 plt.figure()
 plt.plot(range(len(losses)), losses, linewidth=3)
-plt.title("Generation vs Loss") 
+plt.title("Generation vs Loss")
 plt.ylabel('Loss')
 plt.xlabel('Generation')
 plt.show()

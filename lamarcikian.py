@@ -52,7 +52,7 @@ def lt_learning(solution_idx):
 
     model.set_weights(weights=model_weights_matrix)
     model.compile(optimizer="adam", loss="mse")
-    model.fit(data_inputs, data_outputs, epochs=2)
+    model.fit(data_inputs, data_outputs, epochs=3) # 30 iterations, 3 epoch
     predictions = model.predict(data_inputs)
     local_search = pygad.kerasga.model_weights_as_vector(model)
     mae = tensorflow.keras.losses.MeanSquaredError()
@@ -76,21 +76,25 @@ def callback_generation(ga_instance):
         generation=ga_instance.generations_completed))
     print("Fitness    = {fitness}".format(
         fitness=ga_instance.best_solution()[1]))
-    loss_value = 1.0 / ga_instance.best_solution()[1]
-    print("Loss    = {loss}".format(
-        loss=1.0 / loss_value))
-    losses.append(loss_value)
+    print("Loss    = {loss_value}".format(
+        loss_value= 1.0 / ga_instance.best_solution()[1]))
+    losses.append(1.0 / ga_instance.best_solution()[1])
 
 
 def callback_fitness(ga_instance, population_fitness):
+    # skip initial pop, start from gen 1
+    global initial_population
+    if initial_population:
+        initial_population = False
+        return
     best_solt_idx = ga_instance.best_solution()[2]
-    # print(population_fitness[best_solt_idx])
     lt_vector, lt_value = lt_learning(best_solt_idx)
     # apply lamarcikian evolution (write back to genotype)
-    if evoution_type == "lamarck":
+    if evolution_type == "lamarck":
         ga_instance.population[best_solt_idx] = lt_vector
-    # apply baldwin effect (write only the phenotype)
-    population_fitness[best_solt_idx] = lt_value
+        population_fitness[best_solt_idx] = lt_value
+    if evolution_type=="baldwin":
+        population_fitness[best_solt_idx] = lt_value
 
 
 # Neural network has one hidden layer with six neurons.
@@ -118,7 +122,8 @@ for line in lines_t:
 
 num_generations = 5
 num_parents_mating = 2
-evoution_type = "lamarck"  # {lamarck, baldwin}
+evolution_type = "lamarck"  # {lamarck, baldwin}
+initial_population = True
 
 ga_instance = pygad.GA(num_generations=num_generations,
                        num_parents_mating=num_parents_mating,
@@ -148,3 +153,4 @@ plt.title("Generation vs Loss")
 plt.ylabel('Loss')
 plt.xlabel('Generation')
 plt.show()
+
