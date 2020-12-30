@@ -107,3 +107,4 @@ plt.title("Generation vs Loss")
 plt.ylabel('Loss')
 plt.xlabel('Generation')
 plt.show()
+

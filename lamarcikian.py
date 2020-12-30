@@ -51,7 +51,7 @@ def lt_learning(solution_idx):
                                                                  weights_vector=weight_list)
 
     model.set_weights(weights=model_weights_matrix)
-    model.compile(optimizer="adam", loss="mse")
+    model.compile(optimizer="rmsprop", loss="mse")
     model.fit(data_inputs, data_outputs, epochs=3) # 30 iterations, 3 epoch
     predictions = model.predict(data_inputs)
     local_search = pygad.kerasga.model_weights_as_vector(model)
@@ -120,7 +120,7 @@ for line in lines_t:
     data_inputs.append([float(x1), float(x2)])
     data_outputs.append([float(y)])
 
-num_generations = 5
+num_generations = 25
 num_parents_mating = 2
 evolution_type = "lamarck"  # {lamarck, baldwin}
 initial_population = True
