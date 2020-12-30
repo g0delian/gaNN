@@ -37,7 +37,7 @@ def main():
         train_f.write("\n")
 
     for i in range(len(X_test)):
-        test_f.write(str(X_test[i]) + " ")
+        test_f.write("{} {} ".format(str(X_test[i][0]), str(X_test[i][1])))
         test_f.write(str(y_test[i]))
         test_f.write("\n")
 
