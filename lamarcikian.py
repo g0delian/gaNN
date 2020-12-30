@@ -16,16 +16,12 @@ num_bytes = 15
 def fitness(solution, sol_idx):
     global data_inputs, data_outputs, keras_ga, model
 
-    # print("solution")
-    # print(solution)
-
     weight_list = []
     for i in range(0, len(solution), 15):
         binary_as_list = solution[i: i+15]
         d_value = int(''.join(map(str, binary_as_list)), 2)
         x_actual = x_min + ((x_max - x_min) / (2**num_bytes - 1)) * d_value
         weight_list.append(x_actual)
-    # print(weight_list)
 
     model_weights_matrix = pygad.kerasga.model_weights_as_matrix(model=model,
                                                                  weights_vector=weight_list)
@@ -40,10 +36,10 @@ def fitness(solution, sol_idx):
 
     return solution_fitness
 
+
 def lt_learning(solution_idx):
     global model
     solution = ga_instance.population[solution_idx]
-    print(solution.shape)
     weight_list = []
     for i in range(0, len(solution), 15):
         binary_as_list = solution[i: i+15]
@@ -57,15 +53,21 @@ def lt_learning(solution_idx):
     model.set_weights(weights=model_weights_matrix)
     model.compile(optimizer="adam", loss="mse")
     model.fit(data_inputs, data_outputs, epochs=2)
-    local_search = model.get_weights()
     predictions = model.predict(data_inputs)
-
+    local_search = pygad.kerasga.model_weights_as_vector(model)
     mae = tensorflow.keras.losses.MeanSquaredError()
     abs_error = mae(data_outputs, predictions).numpy() + 0.00000001
     solution_fitness = 1.0 / abs_error
 
-    # baldwin effect, phenotype only
-    return solution_fitness
+    # print(local_search)
+    lt_vector = []
+
+    for x_acc in local_search:
+        d_value = (x_acc - x_min) / ((x_max - x_min) / (2**num_bytes - 1))
+        b_value = "{0:015b}".format(round(d_value))
+        lt_vector.extend(b_value)
+
+    return lt_vector, solution_fitness
 
 
 def callback_generation(ga_instance):
@@ -79,12 +81,17 @@ def callback_generation(ga_instance):
         loss=1.0 / loss_value))
     losses.append(loss_value)
 
+
 def callback_fitness(ga_instance, population_fitness):
     best_solt_idx = ga_instance.best_solution()[2]
-    print(population_fitness[best_solt_idx])
-    lt_value = lt_learning(best_solt_idx) # apply lamarcikian evolution in place
+    # print(population_fitness[best_solt_idx])
+    lt_vector, lt_value = lt_learning(best_solt_idx)
+    # apply lamarcikian evolution (write back to genotype)
+    if evoution_type == "lamarck":
+        ga_instance.population[best_solt_idx] = lt_vector
+    # apply baldwin effect (write only the phenotype)
     population_fitness[best_solt_idx] = lt_value
-    print(lt_value)
+
 
 # Neural network has one hidden layer with six neurons.
 input_layer = tensorflow.keras.layers.Input(2)
@@ -95,7 +102,6 @@ output_layer = tensorflow.keras.layers.Dense(
 
 model = tensorflow.keras.Model(inputs=input_layer, outputs=output_layer)
 
-# use the model, set population size to 100
 keras_ga = pygad.kerasga.KerasGA(model=model, num_solutions=10)
 
 data_inputs = []
@@ -112,6 +118,7 @@ for line in lines_t:
 
 num_generations = 5
 num_parents_mating = 2
+evoution_type = "lamarck"  # {lamarck, baldwin}
 
 ga_instance = pygad.GA(num_generations=num_generations,
                        num_parents_mating=num_parents_mating,
@@ -141,4 +148,3 @@ plt.title("Generation vs Loss")
 plt.ylabel('Loss')
 plt.xlabel('Generation')
 plt.show()
-
