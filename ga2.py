@@ -13,7 +13,6 @@ popSize = 28  # Population size
 dimension = 3  # Number of decision variable x
 numOfBits = 10  # Number of bits in the chromosomes
 iterations = 100  # Number of generations to be run
-dspInterval = 10
 crossPoints = 2  # variable not used. instead tools.cxTwoPoint
 crossProb = 0.9
 flipProb = 1. / (dimension * numOfBits)  # bit mutate prob
@@ -33,6 +32,40 @@ toolbox.register("population", tools.initRepeat, list, toolbox.individual)
 toolbox.register("mate", tools.cxTwoPoint)
 toolbox.register("mutate", tools.mutFlipBit, indpb=flipProb)
 toolbox.register("select", tools.selNSGA2)
+
+
+def efficient_sort(pop):
+    # sort according to f1
+    sorted_data = sorted(pop, key=lambda x: x.fitness.values[0], reverse=True)
+    # print(sorted_data)
+    pareto_idx = [[]]  # list of lists for keeping fronts
+    pareto_idx[0].append(sorted_data[0])  # add the first data
+    
+    for check_gen in range(1, len(sorted_data)):
+        f1 = sorted_data[check_gen].fitness.values[0]
+        f2 = sorted_data[check_gen].fitness.values[1]
+        no_dominate = True
+        for front_idx in range(len(pareto_idx)):
+            dominates = True
+            front_count = len(pareto_idx)
+            for gen_idx in range(len(pareto_idx[front_idx])):
+                gene = pareto_idx[front_idx][gen_idx]
+                # print(gen_idx)
+                if not (f1 > gene.fitness.values[0] or f2 > gene.fitness.values[1]):
+                    #print(gene.fitness.values[0], f1)
+                    #print(gene.fitness.values[1], f2)
+                    dominates = False
+                    # print(dominates)
+                    break
+            if dominates:
+                pareto_idx[front_idx].append(sorted_data[check_gen])
+                no_dominate = False
+                break
+        if no_dominate:
+            pareto_idx.append([])
+            pareto_idx[front_count].append(sorted_data[check_gen])
+
+    return pareto_idx
 
 
 def eval_sphere(individual):
@@ -71,9 +104,12 @@ def main():
         # print(ind)
         x1, x2, x3 = separatevariables(ind)
         ind.fitness.values = fit
-        print(tabulate([[x1, x2, x3, fit[0], fit[1]], ], headers=[
-            'x1', 'x2', 'x3', 'f1 fitness', 'f2 fitness']))
+        # print(tabulate([[x1, x2, x3, fit[0], fit[1]], ], headers=[
+        # 'x1', 'x2', 'x3', 'f1 fitness', 'f2 fitness']))
 
+    sort_pop = efficient_sort(pop)
+    for x in range(len(sort_pop)):
+        print(x, sort_pop[x])
 
     # no actual selection, crowding values only.
     pop = toolbox.select(pop, len(pop))
