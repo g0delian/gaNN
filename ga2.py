@@ -4,7 +4,9 @@ from sympy.combinatorics.graycode import gray_to_bin
 from deap.benchmarks.tools import diversity, convergence, hypervolume
 from deap import creator, base, tools, algorithms
 import numpy
-from tabulate import tabulate
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+import matplotlib.pyplot as plt
 
 creator.create("FitnessMin", base.Fitness, weights=(-1.0, -1.0))
 creator.create("Individual", list, fitness=creator.FitnessMin)
@@ -40,7 +42,7 @@ def efficient_sort(pop):
     # print(sorted_data)
     pareto_idx = [[]]  # list of lists for keeping fronts
     pareto_idx[0].append(sorted_data[0])  # add the first data
-    
+
     for check_gen in range(1, len(sorted_data)):
         f1 = sorted_data[check_gen].fitness.values[0]
         f2 = sorted_data[check_gen].fitness.values[1]
@@ -48,7 +50,7 @@ def efficient_sort(pop):
         for front_idx in range(len(pareto_idx)):
             dominates = True
             front_count = len(pareto_idx)
-            for gen_idx in range(len(pareto_idx[front_idx])):
+            for gen_idx in range(len(pareto_idx[front_idx]))[::-1]:
                 gene = pareto_idx[front_idx][gen_idx]
                 # print(gen_idx)
                 if not (f1 > gene.fitness.values[0] or f2 > gene.fitness.values[1]):
@@ -94,53 +96,147 @@ def separatevariables(v):
 
 
 def main():
-    # random.seed(64)
-    # print("INITIAL POPULATION")
+    # Encode the decision variables using Gray coding, each using 10
+    # its. Set the population size to 28 and randomly generate an
+    # initial population.
     pop = toolbox.population(n=popSize)
-
+    # for graphics
+    x1_l = []
+    x2_l = []
+    x3_l = []
+    f1_values = []
+    f2_values = []
+    # evaluate
     invalid_ind = [ind for ind in pop if not ind.fitness.valid]
     fitnesses = toolbox.map(toolbox.evaluate, invalid_ind)
     for ind, fit in zip(invalid_ind, fitnesses):
         # print(ind)
         x1, x2, x3 = separatevariables(ind)
+        x1_l.append(x1)
+        x2_l.append(x2)
+        x3_l.append(x3)
         ind.fitness.values = fit
-        # print(tabulate([[x1, x2, x3, fit[0], fit[1]], ], headers=[
-        # 'x1', 'x2', 'x3', 'f1 fitness', 'f2 fitness']))
+        f1_values.append(fit[0])
+        f2_values.append(fit[1])
 
+    fig = make_subplots(
+        rows=3, cols=1,
+        shared_xaxes=True,
+        vertical_spacing=0.03,
+        specs=[[{"type": "table"}],
+               [{"type": "table"}],
+               [{"type": "table"}]]
+    )
+
+    # efficient sort and front values
+    f1_value = []
+    f2_value = []
+    front_value = []
     sort_pop = efficient_sort(pop)
     for x in range(len(sort_pop)):
-        print(x, sort_pop[x])
+        for j in sort_pop[x]:
+            f1_value.append(j.fitness.values[0])
+            f2_value.append(j.fitness.values[1])
+            front_value.append(x)
+
+    # create a graph
+    fig.add_trace(
+        go.Table(
+            header=dict(
+                values=["x1", "x2", "x3", "f1", "f2"],
+                font=dict(size=10),
+                align="left"
+            ),
+            cells=dict(
+                values=[x1_l, x2_l, x3_l, f1_values, f2_values],
+                align="left")
+        ),
+        row=1, col=1
+    )
+
+    fig.add_trace(
+        go.Table(
+            header=dict(
+                values=["f1", "f2", "front"],
+                font=dict(size=10),
+                align="left"
+            ),
+            cells=dict(
+                values=[f1_value, f2_value, front_value],
+                align="left")
+        ),
+        row=2, col=1
+    )
+
+    # max objective values
+    worst_f1 = max(pop, key=lambda x: x.fitness.values[0])
+    worst_f2 = max(pop, key=lambda x: x.fitness.values[1])
+    print("Max f1: ", worst_f1.fitness.values[0])
+    print("Max f2", worst_f2.fitness.values[1])
 
     # no actual selection, crowding values only.
     pop = toolbox.select(pop, len(pop))
 
-    for gen in range(1, NGEN):
-        # Vary the population
-        offspring = tools.selTournamentDCD(pop, len(pop))
-        # selTournamentDCD means Tournament selection based on dominance (D)
-        # followed by crowding distance (CD). This selection requires the
-        # individuals to have a crowding_dist attribute
-        offspring = [toolbox.clone(ind) for ind in offspring]
-        for ind1, ind2 in zip(offspring[::2], offspring[1::2]):
-            # make pairs of all (even,odd) in offspring
-            if random.random() <= crossProb:
-                toolbox.mate(ind1, ind2)
+    fig.update_layout(
+        height=800,
+        showlegend=False,
+        title_text="Question 1: Answers 1, 2, 3 <br> <br> They are scrolable!",
+    )
+    fig.show()
 
+    first_run = True
+    for gen in range(1, NGEN):
+        # Apply the binary tournament selection to select parent
+        # individuals for reproduction.
+        parents = tools.selTournamentDCD(pop, len(pop)) 
+
+        offspring = [toolbox.clone(ind) for ind in parents]
+        for ind1, ind2 in zip(offspring[::2], offspring[1::2]):
+            if random.random() <= crossProb: 
+                toolbox.mate(ind1, ind2)
             toolbox.mutate(ind1)
             toolbox.mutate(ind2)
             del ind1.fitness.values, ind2.fitness.values
 
-        # Evaluate the individuals with an invalid fitness
+        # evaluate offsprings
         invalid_ind = [ind for ind in offspring if not ind.fitness.valid]
         fitnesses = toolbox.map(toolbox.evaluate, invalid_ind)
         for ind, fit in zip(invalid_ind, fitnesses):
             ind.fitness.values = fit
 
-        # Select the next generation population
+        if first_run:
+        # Plot individuals together with the parents in the objective space
+            x_parents = [x.fitness.values[0] for x in parents]
+            y_parents = [x.fitness.values[1] for x in parents]
+
+            plt.scatter(x_parents, y_parents, c='coral')
+
+            x_siblings = [x.fitness.values[0] for x in offspring]
+            y_siblings = [x.fitness.values[1] for x in offspring]
+
+            plt.scatter(x_siblings, y_siblings, c='lightblue')
+
+            plt.title('Parents and Siblings Objective Space')
+            plt.xlabel('f1')
+            plt.ylabel('f2')
+            plt.savefig('parents_siblings_objective.png')
+            plt.show()
+            first_run = False
+            pass
+            
+
+        # Combine the 25 offspring individuals with the 25 parent 
+        # individuals. Then select 25 individuals from the combined
+        # population using the crowded non-dominated sorting method.
         pop = toolbox.select(pop + offspring, popSize)
 
+        # Plot the combined population (50 individuals) in the objective
+        # space. 
+
+
+    # calculate according to max(f1) and max(f2)
     print("Final population hypervolume is %f" %
-          hypervolume(pop, [11.0, 11.0]))
+          hypervolume(pop, [worst_f1.fitness.values[0], worst_f2.fitness.values[0]])) 
 
 
 if __name__ == "__main__":
