@@ -12,6 +12,7 @@ x_min = -10
 x_max = 10
 num_bytes = 15
 
+# acquire individual from genetic algorithm, convert it to weights
 def fitness(solution, sol_idx):
     global training_inputs, training_outputs, keras_ga, model, testing
 
@@ -19,6 +20,7 @@ def fitness(solution, sol_idx):
     for i in range(0, len(solution), 15):
         binary_as_list = solution[i: i+15]
         d_value = int(''.join(map(str, binary_as_list)), 2)
+        # stay within function boundary
         x_actual = x_min + ((x_max - x_min) / (2**num_bytes - 1)) * d_value
         weight_list.append(x_actual)
 
@@ -27,15 +29,18 @@ def fitness(solution, sol_idx):
 
     model.set_weights(weights=model_weights_matrix)
 
+    # test on testing dataset
     if testing:
         predictions = model.predict(test_inputs)
         mae = tensorflow.keras.losses.MeanSquaredError()
         abs_error = mae(test_outputs, predictions).numpy() + 0.00000001
+    # test on training dataset
     else:
         predictions = model.predict(training_inputs)
         mae = tensorflow.keras.losses.MeanSquaredError()
         abs_error = mae(training_outputs, predictions).numpy() + 0.00000001
 
+    # convert to maximisation problem
     solution_fitness = 1.0 / abs_error
 
     return solution_fitness
@@ -55,6 +60,7 @@ def lt_learning(solution_idx):
                                                                  weights_vector=weight_list)
 
     model.set_weights(weights=model_weights_matrix)
+    # experimented with their difference
     # model.compile(optimizer="rprop", loss="mse")
     model.compile(optimizer="rmsprop", loss="mse")
     model.fit(training_inputs, training_outputs,
@@ -73,7 +79,7 @@ def lt_learning(solution_idx):
         b_value = "{0:015b}".format(round(d_value))
         lt_vector.extend(b_value)
 
-    return lt_vector, solution_fitness
+    return lt_vector, solution_fitness # return genotype, phenotype
 
 
 def callback_generation(ga_instance):
@@ -95,12 +101,15 @@ def callback_fitness(ga_instance, population_fitness):
         initial_population = False
         return
     best_solt_idx = ga_instance.best_solution()[2]
+
+    # check if lifetime learning
     if evolution_type:
         lt_vector, lt_value = lt_learning(best_solt_idx)
     # apply lamarcikian evolution (write back to genotype)
     if evolution_type == "lamarck":
         ga_instance.population[best_solt_idx] = lt_vector
         population_fitness[best_solt_idx] = lt_value
+    # apply baldwin effect (write only fitness value)
     if evolution_type == "baldwin":
         population_fitness[best_solt_idx] = lt_value
 
