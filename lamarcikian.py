@@ -12,7 +12,6 @@ x_min = -10
 x_max = 10
 num_bytes = 15
 
-
 def fitness(solution, sol_idx):
     global training_inputs, training_outputs, keras_ga, model, testing
 
@@ -56,6 +55,7 @@ def lt_learning(solution_idx):
                                                                  weights_vector=weight_list)
 
     model.set_weights(weights=model_weights_matrix)
+    # model.compile(optimizer="rprop", loss="mse")
     model.compile(optimizer="rmsprop", loss="mse")
     model.fit(training_inputs, training_outputs,
               epochs=3)  # 30 iterations, 3 epoch
@@ -95,7 +95,8 @@ def callback_fitness(ga_instance, population_fitness):
         initial_population = False
         return
     best_solt_idx = ga_instance.best_solution()[2]
-    lt_vector, lt_value = lt_learning(best_solt_idx)
+    if evolution_type:
+        lt_vector, lt_value = lt_learning(best_solt_idx)
     # apply lamarcikian evolution (write back to genotype)
     if evolution_type == "lamarck":
         ga_instance.population[best_solt_idx] = lt_vector
@@ -138,9 +139,9 @@ for line in lines_t:
     test_inputs.append([float(x1), float(x2)])
     test_outputs.append([float(y)])
 
-num_generations = 5
+num_generations = 25
 num_parents_mating = 2
-evolution_type = "lamarck"  # {lamarck, baldwin}
+evolution_type = False  # {lamarck, baldwin}
 initial_population = True
 testing = False
 best_individuals = []
@@ -152,13 +153,15 @@ ga_instance = pygad.GA(num_generations=num_generations,
                        num_genes=375,
                        init_range_low=0,
                        init_range_high=2,
+                       crossover_probability=0.9,
+                       mutation_percent_genes=1/15, # 1 / chromosome size
+                       crossover_type="single_point",
                        on_generation=callback_generation,
                        on_fitness=callback_fitness,
                        random_mutation_min_val=0,
                        random_mutation_max_val=2,
                        mutation_by_replacement=True,
                        gene_type=int,
-                       mutation_percent_genes=5
                        )
 ga_instance.run()
 

@@ -17,7 +17,6 @@ numOfBits = 10  # Number of bits in the chromosomes
 iterations = 100  # Number of generations to be run
 crossProb = 0.9
 flipProb = 1. / (dimension * numOfBits)  # bit mutate prob
-mutateprob = .1  # mutation prob
 maxnum = 2**numOfBits
 
 BOUND_LOW, BOUND_UP = -4, 4
@@ -42,6 +41,10 @@ def efficient_sort(pop):
     pareto_idx = [[]]  # list of lists for keeping fronts
     pareto_idx[0].append(sorted_data[0])  # add the first data
 
+    # Three nested loop. Go through every point
+    # Start from the fronts, compare with each gene
+    # If dominates all, place
+    # If not, create a front
     for check_gen in range(1, len(sorted_data)):
         f1 = sorted_data[check_gen].fitness.values[0]
         f2 = sorted_data[check_gen].fitness.values[1]
@@ -51,17 +54,16 @@ def efficient_sort(pop):
             front_count = len(pareto_idx)
             for gen_idx in range(len(pareto_idx[front_idx]))[::-1]:
                 gene = pareto_idx[front_idx][gen_idx]
-                # print(gen_idx)
+                # check if dominated
                 if not (f1 < gene.fitness.values[0] or f2 < gene.fitness.values[1]):
-                    #print(gene.fitness.values[0], f1)
-                    #print(gene.fitness.values[1], f2)
                     dominates = False
-                    # print(dominates)
                     break
+            # if dominates all in front add it to that front
             if dominates:
                 pareto_idx[front_idx].append(sorted_data[check_gen])
                 no_dominate = False
                 break
+        # if does not dominate all in any front, create a new frfont
         if no_dominate:
             pareto_idx.append([])
             pareto_idx[front_count].append(sorted_data[check_gen])
@@ -89,15 +91,13 @@ def chrom2real(c):
 
 # input: concatenated list of binary variables
 # output: tuple of real numbers representing those variables
-
 def separatevariables(v):
     return chrom2real(v[0:numOfBits]), chrom2real(v[numOfBits:20]), chrom2real(v[numOfBits*2:])
 
 
 def main():
     # Encode the decision variables using Gray coding, each using 10
-    # its. Set the population size to 28 and randomly generate an
-    # initial population.
+    # its. Set the population size to 28 and randomly generate.
     pop = toolbox.population(n=popSize)
     # for graphics
     x1_l = []
@@ -105,7 +105,7 @@ def main():
     x3_l = []
     f1_values = []
     f2_values = []
-    # evaluate
+    # Q1.1, Q1.2 Q1.3
     invalid_ind = [ind for ind in pop if not ind.fitness.valid]
     fitnesses = toolbox.map(toolbox.evaluate, invalid_ind)
     for ind, fit in zip(invalid_ind, fitnesses):
@@ -183,9 +183,9 @@ def main():
     )
     fig.show()
 
-    # turn to true for acquire graphs every run
-    # graphs need to be closed to proceed
-    graph_every_run = False
+    # turn false for acquiring graph every gen
+    # graphs need to be closed from UI to proceed
+    graph_every_run = True
     hyper_volume_l = []
     for gen in range(1, NGEN):
         # Apply the binary tournament selection to select parent
@@ -226,7 +226,7 @@ def main():
             plt.title('Generation {} Parents and Siblings'.format(gen))
             plt.xlabel('f1')
             plt.ylabel('f2')
-            #plt.savefig('parents_siblings_objective.png')
+            # plt.savefig('parents_siblings_objective.png')
             ax.legend()
             plt.show()
 
@@ -247,15 +247,16 @@ def main():
             plt.title('Generation {} Population Selection'.format(gen))
             plt.xlabel('f1')
             plt.ylabel('f2')
-            #plt.savefig('population_selection_objective.png')
+            # plt.savefig('population_selection_objective.png')
             ax.legend()
             plt.show()
 
         # calculate according to max(f1) and max(f2)
 
         print("Final population hypervolume is %f" %
-          hypervolume(pop, [worst_f1.fitness.values[0], worst_f2.fitness.values[0]]))
-        hyper_volume_l.append(hypervolume(pop, [worst_f1.fitness.values[0], worst_f2.fitness.values[0]]))
+              hypervolume(pop, [worst_f1.fitness.values[0], worst_f2.fitness.values[0]]))
+        hyper_volume_l.append(hypervolume(
+            pop, [worst_f1.fitness.values[0], worst_f2.fitness.values[0]]))
 
     plt.figure()
     plt.plot(range(len(hyper_volume_l)), hyper_volume_l, linewidth=3)
@@ -263,6 +264,7 @@ def main():
     plt.ylabel('Hypervolume')
     plt.xlabel('Generation')
     plt.show()
+
 
 if __name__ == "__main__":
     main()
