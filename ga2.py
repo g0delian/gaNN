@@ -15,7 +15,6 @@ popSize = 28  # Population size
 dimension = 3  # Number of decision variable x
 numOfBits = 10  # Number of bits in the chromosomes
 iterations = 100  # Number of generations to be run
-crossPoints = 2  # variable not used. instead tools.cxTwoPoint
 crossProb = 0.9
 flipProb = 1. / (dimension * numOfBits)  # bit mutate prob
 mutateprob = .1  # mutation prob
@@ -31,14 +30,14 @@ toolbox.register("individual", tools.initRepeat, creator.Individual,
                  toolbox.attr_bool, numOfBits*dimension)
 toolbox.register("population", tools.initRepeat, list, toolbox.individual)
 
-toolbox.register("mate", tools.cxTwoPoint)
+toolbox.register("mate", tools.cxUniform)
 toolbox.register("mutate", tools.mutFlipBit, indpb=flipProb)
 toolbox.register("select", tools.selNSGA2)
 
 
 def efficient_sort(pop):
     # sort according to f1
-    sorted_data = sorted(pop, key=lambda x: x.fitness.values[0], reverse=True)
+    sorted_data = sorted(pop, key=lambda x: x.fitness.values[0])
     # print(sorted_data)
     pareto_idx = [[]]  # list of lists for keeping fronts
     pareto_idx[0].append(sorted_data[0])  # add the first data
@@ -53,7 +52,7 @@ def efficient_sort(pop):
             for gen_idx in range(len(pareto_idx[front_idx]))[::-1]:
                 gene = pareto_idx[front_idx][gen_idx]
                 # print(gen_idx)
-                if not (f1 > gene.fitness.values[0] or f2 > gene.fitness.values[1]):
+                if not (f1 < gene.fitness.values[0] or f2 < gene.fitness.values[1]):
                     #print(gene.fitness.values[0], f1)
                     #print(gene.fitness.values[1], f2)
                     dominates = False
@@ -184,16 +183,18 @@ def main():
     )
     fig.show()
 
-    first_run = True
+    # turn to true for acquire graphs every run
+    # graphs need to be closed to proceed
+    graph_every_run = False
+    hyper_volume_l = []
     for gen in range(1, NGEN):
         # Apply the binary tournament selection to select parent
         # individuals for reproduction.
-        parents = tools.selTournamentDCD(pop, len(pop)) 
+        parents = tools.selTournamentDCD(pop, len(pop))
 
         offspring = [toolbox.clone(ind) for ind in parents]
         for ind1, ind2 in zip(offspring[::2], offspring[1::2]):
-            if random.random() <= crossProb: 
-                toolbox.mate(ind1, ind2)
+            toolbox.mate(ind1, ind2, crossProb)
             toolbox.mutate(ind1)
             toolbox.mutate(ind2)
             del ind1.fitness.values, ind2.fitness.values
@@ -204,40 +205,64 @@ def main():
         for ind, fit in zip(invalid_ind, fitnesses):
             ind.fitness.values = fit
 
-        if first_run:
-        # Plot individuals together with the parents in the objective space
+        # Then select 25 individuals from the combined
+        # population using the crowded non-dominated sorting method.
+        pop = toolbox.select(parents + offspring, popSize)
+
+        if graph_every_run:
+            # Plot individuals together with the parents in the objective space.
             x_parents = [x.fitness.values[0] for x in parents]
             y_parents = [x.fitness.values[1] for x in parents]
 
-            plt.scatter(x_parents, y_parents, c='coral')
+            fig, ax = plt.subplots()
+
+            plt.scatter(x_parents, y_parents, c='blue', label="parents")
 
             x_siblings = [x.fitness.values[0] for x in offspring]
             y_siblings = [x.fitness.values[1] for x in offspring]
 
-            plt.scatter(x_siblings, y_siblings, c='lightblue')
+            ax.scatter(x_siblings, y_siblings, c='red', label="siblings")
 
-            plt.title('Parents and Siblings Objective Space')
+            plt.title('Generation {} Parents and Siblings'.format(gen))
             plt.xlabel('f1')
             plt.ylabel('f2')
-            plt.savefig('parents_siblings_objective.png')
+            #plt.savefig('parents_siblings_objective.png')
+            ax.legend()
             plt.show()
-            first_run = False
-            pass
-            
 
-        # Combine the 25 offspring individuals with the 25 parent 
-        # individuals. Then select 25 individuals from the combined
-        # population using the crowded non-dominated sorting method.
-        pop = toolbox.select(pop + offspring, popSize)
+            # Plot the combined population (50 individuals) in the objective
+            # space. Highlight the 25 selected solutions.
+            x_pop = [x.fitness.values[0] for x in parents + offspring]
+            y_pop = [x.fitness.values[1] for x in parents + offspring]
 
-        # Plot the combined population (50 individuals) in the objective
-        # space. 
+            fig, ax = plt.subplots()
 
+            plt.scatter(x_pop, y_pop, c='blue', label="population")
 
-    # calculate according to max(f1) and max(f2)
-    print("Final population hypervolume is %f" %
-          hypervolume(pop, [worst_f1.fitness.values[0], worst_f2.fitness.values[0]])) 
+            x_selected = [x.fitness.values[0] for x in pop]
+            y_selected = [x.fitness.values[1] for x in pop]
 
+            ax.scatter(x_selected, y_selected, c='red', label="selected")
+
+            plt.title('Generation {} Population Selection'.format(gen))
+            plt.xlabel('f1')
+            plt.ylabel('f2')
+            #plt.savefig('population_selection_objective.png')
+            ax.legend()
+            plt.show()
+
+        # calculate according to max(f1) and max(f2)
+
+        print("Final population hypervolume is %f" %
+          hypervolume(pop, [worst_f1.fitness.values[0], worst_f2.fitness.values[0]]))
+        hyper_volume_l.append(hypervolume(pop, [worst_f1.fitness.values[0], worst_f2.fitness.values[0]]))
+
+    plt.figure()
+    plt.plot(range(len(hyper_volume_l)), hyper_volume_l, linewidth=3)
+    plt.title("Hypervolume Over Generations")
+    plt.ylabel('Hypervolume')
+    plt.xlabel('Generation')
+    plt.show()
 
 if __name__ == "__main__":
     main()
